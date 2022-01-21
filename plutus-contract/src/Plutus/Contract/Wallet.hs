@@ -47,7 +47,7 @@ import GHC.Generics (Generic)
 import Ledger qualified as Plutus
 import Ledger.Ada qualified as Ada
 import Ledger.Constraints (mustPayToPubKey)
-import Ledger.Constraints.OffChain (ScriptOutput (ScriptOutput),
+import Ledger.Constraints.OffChain (ScriptOutput (PublicKeyOutput, ScriptOutput),
                                     UnbalancedTx (UnbalancedTx, unBalancedTxRequiredSignatories, unBalancedTxTx, unBalancedTxUtxoIndex),
                                     adjustUnbalancedTx, mkTx)
 import Ledger.Tx (CardanoTx, TxOutRef, getCardanoTxInputs, txInRef)
@@ -264,6 +264,16 @@ toExportTxInput networkId Plutus.TxOutRef{Plutus.txOutRefId, Plutus.txOutRefIdx}
         <*> CardanoAPI.toCardanoAddress networkId (Plutus.scriptHashAddress vh)
         <*> pure (C.selectLovelace cardanoValue)
         <*> either (const $ pure Nothing) (pure . Just) (CardanoAPI.toCardanoScriptDataHash dh)
+        <*> pure otherQuantities
+toExportTxInput networkId Plutus.TxOutRef{Plutus.txOutRefId, Plutus.txOutRefIdx} (PublicKeyOutput address value) = do
+    cardanoValue <- CardanoAPI.toCardanoValue value
+    let otherQuantities = mapMaybe (\case { (C.AssetId policyId assetName, quantity) -> Just (policyId, assetName, quantity); _ -> Nothing }) $ C.valueToList cardanoValue
+    ExportTxInput
+        <$> CardanoAPI.toCardanoTxId txOutRefId
+        <*> pure (C.TxIx $ fromInteger txOutRefIdx)
+        <*> CardanoAPI.toCardanoAddress networkId address
+        <*> pure (C.selectLovelace cardanoValue)
+        <*> pure Nothing
         <*> pure otherQuantities
 
 mkRedeemers :: Plutus.Tx -> Either CardanoAPI.ToCardanoError [ExportTxRedeemer]
