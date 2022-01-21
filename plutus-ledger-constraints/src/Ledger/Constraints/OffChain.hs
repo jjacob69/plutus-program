@@ -191,22 +191,30 @@ data ScriptOutput =
         , scriptOutputValue         :: Value
         , scriptOutputDatumHash     :: DatumHash
         }
+  | PublicKeyOutput
+        { publicKeyOutputAddress :: Tx.Address
+        , publicKeyOutputValue   :: Value
+        }
     deriving stock (Eq, Generic, Show)
     deriving anyclass (FromJSON, ToJSON, OpenApi.ToSchema)
 
-toScriptOutput :: ChainIndexTxOut -> Maybe ScriptOutput
+toScriptOutput :: ChainIndexTxOut -> ScriptOutput
 toScriptOutput (Tx.ScriptChainIndexTxOut _ validatorOrHash datumOrHash v)
-    = Just $ ScriptOutput (either id validatorHash validatorOrHash) v (either id datumHash datumOrHash)
-toScriptOutput Tx.PublicKeyChainIndexTxOut{}
-    = Nothing
+    = ScriptOutput (either id validatorHash validatorOrHash) v (either id datumHash datumOrHash)
+toScriptOutput (Tx.PublicKeyChainIndexTxOut address value)
+    = PublicKeyOutput address value
 
 fromScriptOutput :: ScriptOutput -> ChainIndexTxOut
 fromScriptOutput (ScriptOutput vh v dh) =
     Tx.ScriptChainIndexTxOut (Address.scriptHashAddress vh) (Left vh) (Left dh) v
+fromScriptOutput (PublicKeyOutput a v) =
+    Tx.PublicKeyChainIndexTxOut a v
 
 instance Pretty ScriptOutput where
     pretty ScriptOutput{scriptOutputValidatorHash, scriptOutputValue} =
         hang 2 $ vsep ["-" <+> pretty scriptOutputValue <+> "addressed to", pretty scriptOutputValidatorHash]
+    pretty PublicKeyOutput{publicKeyOutputAddress, publicKeyOutputValue} =
+        hang 2 $ vsep ["-" <+> pretty publicKeyOutputValue <+> "addressed to", pretty publicKeyOutputAddress]
 
 -- | An unbalanced transaction. It needs to be balanced and signed before it
 --   can be submitted to the ledeger. See note [Submitting transactions from
@@ -431,7 +439,7 @@ updateUtxoIndex
     => m ()
 updateUtxoIndex = do
     ScriptLookups{slTxOutputs} <- ask
-    unbalancedTx . utxoIndex <>= Map.mapMaybe toScriptOutput slTxOutputs
+    unbalancedTx . utxoIndex <>= Map.map toScriptOutput slTxOutputs
 
 -- | Add a typed input, checking the type of the output it spends. Return the value
 --   of the spent output.
