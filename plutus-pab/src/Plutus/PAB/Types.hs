@@ -121,7 +121,7 @@ data Config =
         , requestProcessingConfig :: RequestProcessingConfig
         , developmentOptions      :: DevelopmentOptions
         }
-    deriving (Show, Eq, Generic, FromJSON)
+    deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 defaultConfig :: Config
 defaultConfig =
@@ -143,7 +143,7 @@ newtype RequestProcessingConfig =
         { requestProcessingInterval :: Second -- ^ How many seconds to wait between calls to 'Plutus.PAB.Core.ContractInstance.processAllContractOutboxes'
         }
     deriving (Show, Eq, Generic)
-    deriving anyclass (FromJSON)
+    deriving anyclass (FromJSON, ToJSON)
 
 defaultRequestProcessingConfig :: RequestProcessingConfig
 defaultRequestProcessingConfig =
